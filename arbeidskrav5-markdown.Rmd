@@ -1,0 +1,260 @@
+---
+title: "Arbeidskrav 5"
+author: "Aleksander Josdal"
+date: "17 11 2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+bibliography: references.bib
+csl: vancouver.csl
+---
+
+#### Introduksjon 
+
+Styrketrening med formål å øke maksimal styrke (1RM), eller øke muskeltverrsnittet (CSA) har blitt forsket mye på. Her brukes ofte variabler som motstand, volum, hastighet etc. Det har vist seg at treningsmotstanden er avgjørende for responsen man får i 1RM og CSA. En høyere motstand er å foretrekke for å øke 1RM og CSA, mens CSA alene kan økes med lavere motstand og flere repetisjoner @schoenfeld2015.
+
+Styrketreningsprogrammer er ofte lagt opp til at man starter med lav motstand og mange repetisjoner, og utover i programmet så øker motstanden og repetisjonene blir færre. Da legger man opp til å øke CSA og 1RM i løpet av treningsperioden. Progresjon i treningsprogrammet går under grunnleggende treningsprinsipper, men hvor mange sett er egentlig nødvending for å få en respons i CSA eller 1RM? Det er spørsmålet denne studien skal undersøke nærmere.
+
+Treningsmotstanden en variabel som kan øke CSA og 1RM, men hvor høyt volum som er nødvendig for å få en respons av disse har forskning vist til forskjellige resultater @krieger2010; @carpinelli1999. Dette forsøket går ut på å teste effekten av 1 sett vs 3 sett på muskelvekst og maksimal styrke. Den alternative hypotesen er at 3 sett gir bedre effekt i muskelmasse og maksimal styrke enn 1 sett.
+
+#### Metode
+
+##### Utvalg
+
+Førti en forsøkspersoner bestående av kvinner og menn i alderen 18-40 år deltok i studien . Syv av disse av disse fullførte ikke grunnet ubehag i beina under treningen (n=5), eller skade som ikke var relatert til studien (n=1), og siste klarte ikke følge protokollen (n=1). Eksklusjonskriteriene var hvis de røykte, eller hadde trent mer enn 1 økt i uken de siste 12 månedene.
+
+##### Studiedesign
+
+Randomisert kontrollert studie hvor deltakerne ble tilfeldig fordelt hvilket bein som skulle gjennomføre 3 sett, og hvilket som bare skulle ta 1 sett. Alle skulle igjennom begge protokollene. De 2 første ukene var motstanden på 10RM, deretter 3 uker på 8RM og 7 uker med 7RM. Beinøvelsene som ble gjennomført var unilateral beinpress, kne-fleksjon og kne-ekstensjon, i gitt rekkefølge. Single sett ble gjennomført mellom 2 og 3 multisett. Etter beinøvelsene gjennomførte de 2 sett med bilateral benkpress, nedtrekk og enten skulderpress eller sittende roing. De fikk 90-180 sekunder pause. Det ble gjennomført 3 økter i uken.
+
+##### Tester
+
+Styrketestene bestod av 1RM i unilateral beinpress og kne-ekstensjon. Spesifikk oppvarming bestående av 10, 6 og 3 repetisjoner på 50, 75 og 85% av estimert 1RM. Etter oppvarming økte motstanden frem til full range of motion feilet, de fikk 6 forsøk på å finne 1RM. Kroppssammensetning ble målt med DXA-scan, standard protokoll med fasting 2 timer før test. Forsøkspersonene ble bedt om å avstå fra fysisk aktivitet 48t før testing.
+
+##### Statistikk og databehandling
+
+Deskriptiv statistikk blir presentert som prosentvis endring i gjennomsnitt og standardavvik (m ± SD).Styrketestene ble slått sammen til en combined load bestående av beinpress og kne-ekstensjon, og deretter regnet ut prosentvis endring. Lean bodymass inneholder prosentvis endring av muskelmasse i beina. P verdier er beregnet på forskjellen mellom multi og single sett, for å gjøre dette ble det benyttet ANCOVA analyse med forandrings scoren som avhengig variabel, og kjønn og sett som co-variat. Signifikansnivå er satt til p \< 0.05. All data er behandlet i R, versjon 1.4.1717, 2009-2021 RStudio, PBC.
+
+#### Resultater
+
+Etter 12 uker trening økte muskelmassen til single sett 2.04 ± 3.7%, og multiple økte med 3.3 ± 4.38% (p\<0.001 for differansen mellom gruppene). I muskelstyrke økte single sett 24.5 ± 12.9%, multiple økte med 31 ± 14.2% (p\<0.001 for differansen mellom gruppene).
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results="hide"}
+
+
+library(exscidata)
+library(ggplot2)
+library(lmerTest); library(lme4)
+library(emmeans)
+library(knitr)
+library(kableExtra)
+library(flextable)
+data("dxadata"); data("strengthvolume")
+
+library(tidyverse)
+
+dat <- dxadata %>%
+  select(participant:include, lean.left_leg, lean.right_leg) %>%
+  pivot_longer(names_to = "leg", 
+               values_to = "lean.mass", 
+               cols = lean.left_leg:lean.right_leg) %>%
+  mutate(leg = if_else(leg == "lean.left_leg", "L", "R"), 
+         sets = if_else(multiple == leg, "multiple", "single")) %>%
+  select(participant, time, sex, include, sets, leg, lean.mass) %>%
+  pivot_wider(names_from = time, 
+              values_from = lean.mass) %>%
+  mutate(LBM_change = post - pre)%>%
+  mutate(prosentvis.endring = ((post - pre) / pre) * 100) %>%
+  filter(!is.na(LBM_change)) 
+  
+  
+#descriptive statistikk, prosentvis endring
+desc.dxa <- dat %>%
+  group_by(sets) %>%
+  summarise(m = mean(prosentvis.endring),
+            sd = sd(prosentvis.endring)) 
+  
+
+
+
+
+
+dat2 <- dat %>%
+  pivot_wider(names_from = sets,
+              values_from = LBM_change)
+ 
+  
+
+dxa.modell <- dxadata %>%
+  select(participant:include, lean.left_leg, lean.right_leg) %>%
+  pivot_longer(names_to = "leg", 
+               values_to = "lean.mass", 
+               cols = lean.left_leg:lean.right_leg) %>%
+   mutate(leg = if_else(leg == "lean.left_leg", "L", "R"), 
+         sets = if_else(multiple == leg, "multiple", "single")) %>%
+  select(participant, time, sets, sex, leg, lean.mass) %>%
+  group_by(participant) %>%
+  mutate(n = n(), group = factor(sets, levels = c("single", "multiple")), time = factor(time, levels = c("pre", "post")))
+
+dxa.modell %>%
+  ggplot(aes(time, lean.mass, group = paste(participant, group), color = group)) + geom_line() + theme_minimal() 
+  
+  
+
+
+
+
+
+
+m1 <- lm(LBM_change ~ sets + pre, data = dat) 
+
+m2 <- aov(LBM_change ~ pre + sets, data = dat)
+
+m3 <- lm(post ~ pre + sex + sets, data = dat) 
+m4 <- lmerTest::lmer(LBM_change ~ pre + sex + sets +(1|participant), data = dat)
+
+m5 <- lme4::lmer(post ~ pre + sex + sets +(1|participant), data = dat)
+
+
+summary(m3)
+
+plot(m3)
+
+
+
+
+  #ser ut som at m5 er best
+  
+  #lmer4 var tingen for å finne p verdi. confidence interval er good for hypotesetesting 
+
+
+
+```
+
+
+
+
+ 
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=TRUE, results='hide', fig.cap="Figur 1 viser prosentvis endring i lean bodymass til hver forsøksperson mellom multiple og single sett, og (m ± SD)"}
+#DXA resultater som skal vises
+#nY STÅENDE DXA FIGUR
+
+#Figur tekst, Figur 1 viser prosentvis endring i lean bodymass til hver forsøksperson mellom multiple og single sett
+
+dxa.dat.mean <- dat %>%
+   group_by(sets) %>%
+  summarise(m = mean(prosentvis.endring, na.rm = TRUE),
+            sd = sd(prosentvis.endring, na.rm = TRUE)) %>%
+  print()
+
+
+dxa.dat.mean %>%
+  ggplot(aes(sets, m)) + geom_point() + geom_line() + geom_errorbar(aes(ymax = m + sd, ymin = m - sd, width = 0.2)) + geom_line(data = dat, aes(sets, prosentvis.endring, group = participant), alpha = 0.9, color = "blue") +
+  
+  labs(x = "Sett",
+       y = "Prosentvis endring i lean.bodymass")
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results="hide"}
+library(flextable)
+library(purrr)
+
+str.dat <- strengthvolume %>%
+  group_by(exercise) %>%
+  mutate(scaled.load = load / max(load, na.rm = TRUE)) %>%
+  group_by(participant, time, sex, sets) %>%
+  summarise(combined.load = mean(scaled.load, na.rm = TRUE)) %>%
+  ungroup()
+ 
+
+  
+str.dat2 <- str.dat %>%
+filter(!is.na(combined.load), time == factor(time, levels = c("pre", "post"))) %>%
+  mutate(time = factor(time, levels = c("pre", "post")),
+         group = factor(sets, levels = c("single", "multiple"))) %>% 
+ group_by(participant) %>%
+  mutate(n = n()) %>%
+  filter(n == "4") %>% 
+  pivot_wider(names_from = time,
+              values_from = combined.load) %>%
+   mutate(prosentvis.endring = ((post - pre) / pre) * 100) 
+ 
+
+#lagre deskriptiv statistikk i prosentvis endring
+desc.str <- str.dat2 %>%
+  filter(!is.na(post)) %>%
+  group_by(sets) %>%
+  summarise(m = mean(prosentvis.endring),
+            sd = sd(prosentvis.endring)) 
+
+
+
+#regresjonsmodeller
+str.m1 <- lme4::lmer(post ~ pre + sex + sets +(1|participant), data = str.dat2)
+str.m2 <- lmerTest::lmer(post ~ pre + sex + sets +(1|participant), data = str.dat2)
+str.m3 <- lm(post ~ pre + sex + sets, data = str.dat2)
+
+plot(str.m3)
+
+
+
+  
+summary(str.m3)
+
+
+  
+  #illustrasjon på styrkefremgangen
+  
+  
+  styrkemodell <- strengthvolume %>%
+  group_by(exercise) %>%
+  mutate(scaled.load = load / max(load, na.rm = TRUE)) %>%
+  group_by(participant, time, sex, sets) %>%
+  summarise(combined.load = mean(scaled.load, na.rm = TRUE)) %>%
+  ungroup() %>%
+  
+  print()
+  
+  
+styrkemodell %>%
+  filter(!is.na(combined.load), time == factor(time, levels = c("pre", "post"))) %>%
+  mutate(time = factor(time, levels = c("pre", "post")),
+         group = factor(sets, levels = c("single", "multiple"))) %>%
+ ggplot(aes(time, combined.load, group = paste(participant, sets), color = sets)) + geom_line() + theme_minimal() %>%
+print()
+
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=TRUE, results='hide', fig.cap="Figur 2 viser prosentvis styrkeendring til hver forsøksperson mellom multiple og single sett, og (m ± SD)"}
+# STÅENDE STYRKEFIGUR
+
+str.dat.mean <- str.dat2 %>%
+  group_by(sets) %>%
+  summarise(m = mean(prosentvis.endring, na.rm = TRUE),
+            sd = sd(prosentvis.endring, na.rm = TRUE)) %>%
+  print()
+
+
+str.dat.mean %>%
+  ggplot(aes(sets, m)) + geom_point() + geom_line() + geom_errorbar(aes(ymax = m + sd, ymin = m - sd, width = 0.2)) + geom_line(data = str.dat2, aes(sets, prosentvis.endring, group = participant), alpha = 0.9, color = "blue") +
+  
+  labs(x = "Sett",
+       y = "Prosentvis styrkeendring")
+  
+```
+
+
+#### Diskusjon
+
+Det viste seg å være signifikant forskjell i beinet som trente med 3 sett i forhold til det som trente med 1 sett, både i lean bodymass og muskelstyrke. Etter å ta testet med forskjellige linneære modeller så var det ANCOVA som passet best til å analysere forskjellen mellom gruppene og ga signifikante P verdier. Scatterplottene viste også tegn til homoskedastisitet, og residualene var innenfor coocks distance og lå på linjen på QQ-plottet.
+
+Hass et al gjorde en lignende stude. Der fant de ikke signifikant forskjell mellom gruppene, men konkluderte med at 1 sett ga god respons uavhengig av treningsstatus @hass2000. Kelly et al fant signifikant forskjell hos multiple gruppen i peak torque hos quadriceps, og konkluderte med at 3 sett vil kunne gi bedre styrkeøkning enn 1 sett @Kelly2007. En annen studie har også konkludert med at 3 sett vil gi større maksimal styrkeøkning enn 1 sett @humburg2007. Totalt sett ser det ut til at majoriteten av studier går i favør mot å trene med 3 sett når det kommer til muskelstyrke. Når det kommer til hypertrofi konkluderte Krieger et al i metaanalysen sin at flere sett vil være mer gunstig enn ett sett @krieger2010.
+
+Tross signifikante forskjeller mellom gruppene i dette forsøket så ga også 1 sett signifikant økning i både muskelmasse og muskelstyrke. Hvis man er ute etter å få en effekt av minst mulig arbeid så er dette mulig, men det er også mulig å oppnå større effekt ved å trene med flere sett.
+
+#### Referanser
